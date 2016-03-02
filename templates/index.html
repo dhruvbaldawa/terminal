@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html class="no-js" lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/foundation/6.2.0/foundation.min.css">
+    </head>
+
+    <body>
+        <select id="comport_select"></select>
+        <button id="comport_refresh">Refresh</button>
+    </body>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.2.1/jquery.min.js"></script>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.5/socket.io.min.js"></script>
+    <script src="//cdn.jsdelivr.net/foundation/6.2.0/foundation.min.js"></script>
+    <script type="text/javascript" charset="utf-8">
+
+    $(document).ready(function() {
+        $(document).foundation();
+
+        var socket = io.connect('http://' + document.domain + ':' + location.port + '/socket.io');
+        socket.on('connect', function() {
+            console.log('connected');
+        });
+
+        socket.on('json', function (msg) {
+            console.log(msg);
+            handleJson(msg);
+        });
+
+        var portSelectBox = $("#comport_select");
+        var portRefreshButton = $("#comport_refresh");
+
+        portRefreshButton.click(function(evt) {
+            portSelectBox.empty();
+            sendJson("comports_list");
+        });
+
+        function handleJson(message) {
+            switch(message.type) {
+                case "comports_list": {
+                    portSelectBox.empty();
+                    $.each(message.data, function (index, value) {
+                        portSelectBox.append($('<option/>', {
+                            value: value.device,
+                            text: value.name + " - " + value.description
+                        }));
+                    });
+                }
+            }
+        }
+
+        function sendJson(type, data) {
+            socket.emit("json", {"v": 1, "type": type, "data": data});
+        }
+    });
+    </script>
+</html>

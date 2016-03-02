@@ -14,7 +14,7 @@ app.config['APP_ROOT'] = abspath(dirname(abspath(__file__)) + '/..')
 app.debug = True
 app.secret_key = 'sekrit'
 
-DEFAULT_NAMESPACE = '/socket.io'
+DEFAULT_NAMESPACE = '/'
 
 socket_io = SocketIO(app)
 greenlet = None
@@ -52,8 +52,10 @@ class SerialInputHandler(LineReader):
 # Communication protocol
 @socket_io.on('json', namespace=DEFAULT_NAMESPACE)
 def handleJson(message):
-    if message.type == c.JSON_RX_COMPORTS_LIST:
+    if message['type'] == c.JSON_RX_COMPORTS_LIST:
         sendJson(c.JSON_TX_COMPORTS_LIST, get_serial_ports())
+    elif message['type'] == c.JSON_RX_COMPORTS_CONNECT:
+        print "Connecting", message['data']
 
 
 def sendJson(type, input):

@@ -2,24 +2,47 @@
 <html class="no-js" lang="en">
     <head>
         <meta charset="utf-8" />
+        <title>Terminal</title>
         <meta http-equiv="x-ua-compatible" content="ie=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="stylesheet" href="//cdn.jsdelivr.net/foundation/6.2.0/foundation.min.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/messenger/1.4.2/css/messenger.min.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/messenger/1.4.2/css/messenger-theme-future.min.css">
+        <style>
+            #comport_select {
+                min-width: 100px;
+                margin-bottom: 0px;
+            }
+        </style>
     </head>
 
     <body>
-        <select id="comport_select"></select>
-        <button id="comport_refresh">Refresh</button>
+        <div class="top-bar">
+            <div class="top-bar-left">
+                <ul class="menu">
+                    <li class="menu-text">Terminal</li>
+                    <li><select id="comport_select"></select></li>
+                    <li><button type="button" class="button" id="comport_refresh_btn">Refresh</button></li>
+                </ul>
+            </div>
+        </div>
     </body>
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.2.1/jquery.min.js"></script>
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.5/socket.io.min.js"></script>
     <script src="//cdn.jsdelivr.net/foundation/6.2.0/foundation.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/messenger/1.4.2/js/messenger.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/messenger/1.4.2/js/messenger-theme-future.min.js"></script>
     <script type="text/javascript" charset="utf-8">
+    var c = {
+        JSON_RX_COMPORTS_LIST: 'comports_list',
+        JSON_TX_COMPORTS_CONNECT: 'comports_connect',
+        JSON_TX_COMPORTS_LIST: 'comports_list',
+    }
 
     $(document).ready(function() {
         $(document).foundation();
 
-        var socket = io.connect('http://' + document.domain + ':' + location.port + '/socket.io');
+        var socket = io.connect('http://' + document.domain + ':' + location.port + '/');
         socket.on('connect', function() {
             console.log('connected');
         });
@@ -30,17 +53,27 @@
         });
 
         var portSelectBox = $("#comport_select");
-        var portRefreshButton = $("#comport_refresh");
+        portSelectBox.change(function(evt) {
+            Messenger().post({ message: "Connecting to " + evt.target.value, type: "info"});
+            sendJson(c.JSON_TX_COMPORTS_CONNECT, evt.target.value)
+        });
 
+        var portRefreshButton = $("#comport_refresh_btn");
         portRefreshButton.click(function(evt) {
             portSelectBox.empty();
-            sendJson("comports_list");
+            sendJson(c.JSON_TX_COMPORTS_LIST);
         });
 
         function handleJson(message) {
             switch(message.type) {
-                case "comports_list": {
+                case c.JSON_RX_COMPORTS_LIST: {
                     portSelectBox.empty();
+                    portSelectBox.append($('<option/>', {
+                        selected: true,
+                        text: '-- Select Port --',
+                        value: ''
+                    }));
+
                     $.each(message.data, function (index, value) {
                         portSelectBox.append($('<option/>', {
                             value: value.device,

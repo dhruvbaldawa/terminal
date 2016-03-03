@@ -23,6 +23,7 @@
                     <li class="menu-text">Terminal</li>
                     <li><select id="comport_select"></select></li>
                     <li><button type="button" class="button" id="comport_refresh_btn">Refresh</button></li>
+                    <li><button type="button" class="alert button" id="comport_disconnect_btn">Disconnect</button></li>
                 </ul>
             </div>
         </div>
@@ -35,8 +36,10 @@
     <script type="text/javascript" charset="utf-8">
     var c = {
         JSON_RX_COMPORTS_LIST: 'comports_list',
+        JSON_RX_NOTIFICATION: 'notification',
         JSON_TX_COMPORTS_CONNECT: 'comports_connect',
         JSON_TX_COMPORTS_LIST: 'comports_list',
+        JSON_TX_COMPORTS_DISCONNECT: 'comports_disconnect',
     }
 
     $(document).ready(function() {
@@ -64,6 +67,11 @@
             sendJson(c.JSON_TX_COMPORTS_LIST);
         });
 
+        var portDisconnectButton = $("#comport_disconnect_btn");
+        portDisconnectButton.click(function(evt) {
+            sendJson(c.JSON_TX_COMPORTS_DISCONNECT);
+        })
+
         function handleJson(message) {
             switch(message.type) {
                 case c.JSON_RX_COMPORTS_LIST: {
@@ -80,6 +88,12 @@
                             text: value.name + " - " + value.description
                         }));
                     });
+                    break;
+                }
+
+                case c.JSON_RX_NOTIFICATION: {
+                    Messenger().post(message.data);
+                    break;
                 }
             }
         }

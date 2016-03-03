@@ -1,12 +1,12 @@
 import sys
-import traceback
+import serial
+import gevent
 import constants as c
 
 from flask import Flask, render_template
 from flask.ext.socketio import SocketIO
 from os.path import abspath, dirname
 from serial.tools.list_ports import comports
-from serial.threaded import LineReader
 
 
 app = Flask(__name__)
@@ -16,8 +16,16 @@ app.secret_key = 'sekrit'
 
 DEFAULT_NAMESPACE = '/'
 
-socket_io = SocketIO(app)
-greenlet = None
+socket_io = SocketIO(app, async_mode="gevent")
+readerThread = None
+readerGreenlet = None
+
+
+# Communication protocol
+
+def sendJson(type, input):
+    socket_io.emit("json", {"v": 1, "type": type, "data": input},
+                   json=True)
 
 
 # Serial communications
@@ -34,33 +42,34 @@ def get_serial_ports():
     return [serialize_ports(comport) for comport in comports()]
 
 
-class SerialInputHandler(LineReader):
-    def connection_made(self, transport):
-        super(SerialInputHandler, self).connection_made(transport)
-        # @FIXME; EMIT THE PORT EMIT EVENT
-
-    def handle_line(self, data):
-        # @FIXME: ADD TO DATABASE AND EMIT DATA EVENT
-        pass
-
-    def connection_lost(self, exc):
-        if exc:
-            traceback.print_exc(exc)
-        # @FIXME: EMIT THE DISCONNECTION EVENT
-
-
-# Communication protocol
-@socket_io.on('json', namespace=DEFAULT_NAMESPACE)
-def handleJson(message):
-    if message['type'] == c.JSON_RX_COMPORTS_LIST:
-        sendJson(c.JSON_TX_COMPORTS_LIST, get_serial_ports())
-    elif message['type'] == c.JSON_RX_COMPORTS_CONNECT:
-        print "Connecting", message['data']
+def read_from_port(ser):
+    sys.stdout.write('start\n')
+    try:
+        with ser:
+            sendJson(c.JSON_TX_NOTIFICATION,
+                     {"type": "success", "message": "Serial port connected"})
+            while True:
+                data = ser.readline()
+                if data:
+                    print data.strip()
+    except gevent.GreenletExit:
+        print "closing serial port"
 
 
-def sendJson(type, input):
-    socket_io.emit("json", {"v": 1, "type": type, "data": input},
-                   json=True)
+def start_serial_port_reader(port, baudrate):
+    global readerGreenlet
+    stop_serial_port_reader()
+    serial_port = serial.Serial(port, baudrate, timeout=0)
+    readerGreenlet = gevent.spawn(read_from_port, serial_port)
+
+
+def stop_serial_port_reader():
+    global readerGreenlet
+    if readerGreenlet is not None:
+        readerGreenlet.kill()
+        readerGreenlet = None
+        sendJson(c.JSON_TX_NOTIFICATION,
+                 {"type": "error", "message": "Serial port disconnected"})
 
 
 # Socket communications
@@ -70,6 +79,25 @@ def sendJson(type, input):
 def connect():
     print 'connected'
     sendJson(c.JSON_TX_COMPORTS_LIST, get_serial_ports())
+
+
+@socket_io.on('json', namespace=DEFAULT_NAMESPACE)
+def handleJson(message):
+    print "Received message", message
+
+    if message['type'] == c.JSON_RX_COMPORTS_LIST:
+        sendJson(c.JSON_TX_COMPORTS_LIST, get_serial_ports())
+
+    elif message['type'] == c.JSON_RX_COMPORTS_CONNECT:
+        if 'data' not in message or not message['data']:
+            sendJson(c.JSON_TX_NOTIFICATION,
+                     {"type": "error", "message": "Invalid serial port"})
+            return
+        start_serial_port_reader(message['data'], c.BAUD_RATE)
+
+    elif message['type'] == c.JSON_RX_COMPORTS_DISCONNECT:
+        stop_serial_port_reader()
+
 
 # Application views
 

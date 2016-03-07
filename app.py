@@ -51,7 +51,7 @@ def read_from_port(ser):
             while True:
                 data = ser.readline()
                 if data:
-                    print data.strip()
+                    handle_data(data.strip())
     except gevent.GreenletExit:
         print "closing serial port"
 
@@ -72,6 +72,10 @@ def stop_serial_port_reader():
                  {"type": "error", "message": "Serial port disconnected"})
 
 
+def handle_data(data):
+    sendJson(c.JSON_TX_COMPORTS_DATA, data)
+
+
 # Socket communications
 
 
@@ -86,6 +90,7 @@ def handleJson(message):
     print "Received message", message
 
     if message['type'] == c.JSON_RX_COMPORTS_LIST:
+        stop_serial_port_reader()
         sendJson(c.JSON_TX_COMPORTS_LIST, get_serial_ports())
 
     elif message['type'] == c.JSON_RX_COMPORTS_CONNECT:

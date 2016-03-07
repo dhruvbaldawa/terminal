@@ -13,6 +13,12 @@
                 min-width: 100px;
                 margin-bottom: 0px;
             }
+
+            #comports_data_container {
+                height: 90vh;
+                overflow-y: auto;
+                word-wrap: break-word;
+            }
         </style>
     </head>
 
@@ -27,6 +33,9 @@
                 </ul>
             </div>
         </div>
+        <div class="row" style="margin: 0;">
+            <code id="comports_data_container" class="large-8 medium-8 small-8 columns"></code>
+        </div>
     </body>
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.2.1/jquery.min.js"></script>
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.5/socket.io.min.js"></script>
@@ -37,6 +46,7 @@
     var c = {
         JSON_RX_COMPORTS_LIST: 'comports_list',
         JSON_RX_NOTIFICATION: 'notification',
+        JSON_RX_COMPORTS_DATA: 'comports_data',
         JSON_TX_COMPORTS_CONNECT: 'comports_connect',
         JSON_TX_COMPORTS_LIST: 'comports_list',
         JSON_TX_COMPORTS_DISCONNECT: 'comports_disconnect',
@@ -72,6 +82,7 @@
             sendJson(c.JSON_TX_COMPORTS_DISCONNECT);
         })
 
+        var portDataContainer = $("#comports_data_container");
         function handleJson(message) {
             switch(message.type) {
                 case c.JSON_RX_COMPORTS_LIST: {
@@ -94,6 +105,10 @@
                 case c.JSON_RX_NOTIFICATION: {
                     Messenger().post(message.data);
                     break;
+                }
+
+                case c.JSON_RX_COMPORTS_DATA: {
+                    portDataContainer.append(message.data + "<br />");
                 }
             }
         }

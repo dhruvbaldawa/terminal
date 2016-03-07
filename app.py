@@ -3,22 +3,52 @@ import serial
 import gevent
 import constants as c
 
+from os.path import abspath, dirname
+from datetime import datetime
 from flask import Flask, render_template
 from flask.ext.socketio import SocketIO
-from os.path import abspath, dirname
+from flask_sqlalchemy import SQLAlchemy
 from serial.tools.list_ports import comports
 
 
 app = Flask(__name__)
 app.config['APP_ROOT'] = abspath(dirname(abspath(__file__)) + '/..')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
+db = SQLAlchemy(app)
 app.debug = True
 app.secret_key = 'sekrit'
 
 DEFAULT_NAMESPACE = '/'
 
+
 socket_io = SocketIO(app, async_mode="gevent")
 readerThread = None
 readerGreenlet = None
+
+
+class LogEntry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    level = db.Column(db.Text, default=None)
+    text = db.Column(db.Text, default=None)
+
+    @staticmethod
+    def makeLogEntry(intext):
+        log_entry = LogEntry()
+        if intext.startswith(c.LVL_DEBUG + ":"):
+            log_entry.level = c.LVL_DEBUG
+        elif intext.startswith(c.LVL_INFO + ":"):
+            log_entry.level = c.LVL_INFO
+        elif intext.startswith(c.LVL_ERROR + ":"):
+            log_entry.level = c.LVL_ERROR
+        else:
+            log_entry.level = c.LVL_OTHER
+        log_entry.text = intext
+        return log_entry
+
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
 
 
 # Communication protocol
@@ -73,6 +103,8 @@ def stop_serial_port_reader():
 
 
 def handle_data(data):
+    log_entry = LogEntry.makeLogEntry(data)
+    log_entry.save()
     sendJson(c.JSON_TX_COMPORTS_DATA, data)
 
 
